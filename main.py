@@ -35,6 +35,8 @@ for folder in RARITY_FOLDERS.values():
 
 INVENTORY_FILE = 'user_inventory.json'
 
+last_command_time = {}
+
 def load_inventory():
     if os.path.exists(INVENTORY_FILE):
         try:
@@ -240,6 +242,18 @@ def handle_message(message):
             break
     
     if should_respond:
+        user_id = message.from_user.id
+        current_time = time.time()
+        
+        if user_id in last_command_time:
+            time_diff = current_time - last_command_time[user_id]
+            if time_diff < 60:
+                remaining = int(60 - time_diff)
+                bot.reply_to(message, f"⏳ Подожди {remaining} секунд до следующей карточки")
+                return
+        
+        last_command_time[user_id] = current_time
+        
         bot.send_chat_action(message.chat.id, 'upload_photo')
 
         image_data, source, rarity, filename = get_random_image_with_rarity()
