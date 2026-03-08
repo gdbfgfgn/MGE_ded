@@ -132,7 +132,10 @@ def add_to_inventory(user_id, rarity, filename):
     if user_id_str not in user_inventory:
         user_inventory[user_id_str] = {}
     
-
+    for card_id, card_data in user_inventory[user_id_str].items():
+        if card_data["filename"] == filename and card_data["rarity"] == rarity:
+            return None
+    
     card_id = f"{rarity}_{filename}_{int(time.time())}_{random.randint(1000, 9999)}"
     
 
@@ -272,6 +275,10 @@ def handle_message(message):
 
                 card_id = add_to_inventory(message.from_user.id, rarity, filename)
                 
+                if card_id is None:
+                    bot.reply_to(message, "😕 Эта карточка у тебя уже есть! Дедус попробует найти другую...")
+                    return
+                
 
                 keyboard = InlineKeyboardMarkup()
                 keyboard.row(
@@ -343,7 +350,11 @@ def handle_callback(call):
         
         if image_data and filename:
 
-            add_to_inventory(call.from_user.id, rarity, filename)
+            card_id = add_to_inventory(call.from_user.id, rarity, filename)
+            
+            if card_id is None:
+                bot.send_message(call.message.chat.id, "😕 Эта карточка у тебя уже есть! Дедус попробует найти другую...")
+                return
             
             if source == 'local':
                 with open(image_data, 'rb') as img:
