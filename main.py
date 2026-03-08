@@ -7,15 +7,11 @@ from io import BytesIO
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import time
 
-
 TOKEN = '7574969352:AAFsKrm9dO0nfIszpCzUIBkKmJW7d5-uZIg'
-
 
 bot = telebot.TeleBot(TOKEN)
 
-
 BOT_NAME = "MGE_Dedus"
-
 
 RARITY_FOLDERS = {
     'obichnie': 'mge_dedus_images/obichnie',
@@ -25,7 +21,6 @@ RARITY_FOLDERS = {
     'spoylemie': 'mge_dedus_images/spoylemie'
 }
 
-
 RARITY_CHANCES = {
     'obichnie': 47,
     'redkie': 20,
@@ -34,14 +29,11 @@ RARITY_CHANCES = {
     'spoylemie': 3
 }
 
-
 for folder in RARITY_FOLDERS.values():
     if not os.path.exists(folder):
         os.makedirs(folder)
 
-
 INVENTORY_FILE = 'user_inventory.json'
-
 
 def load_inventory():
     if os.path.exists(INVENTORY_FILE):
@@ -50,36 +42,30 @@ def load_inventory():
                 content = f.read().strip()
                 if content:
                     data = json.loads(content)
-
                     if data and isinstance(data, dict):
-
                         first_user = next(iter(data.values()))
                         if isinstance(first_user, dict):
                             first_card = next(iter(first_user.values()))
-
                             if isinstance(first_card, int):
                                 print("⚠️ Обнаружен старый формат инвентаря. Создаем новый...")
                                 return {}
-                return data
+                    return data
+                else:
+                    return {}
         except (json.JSONDecodeError, StopIteration) as e:
             print(f"⚠️ Ошибка загрузки инвентаря: {e}. Создаем новый файл...")
-
             if os.path.exists(INVENTORY_FILE):
                 os.rename(INVENTORY_FILE, INVENTORY_FILE + '.backup')
             return {}
     return {}
 
-
 def save_inventory(inventory):
     with open(INVENTORY_FILE, 'w', encoding='utf-8') as f:
         json.dump(inventory, f, ensure_ascii=False, indent=2)
 
-
 user_inventory = load_inventory()
 
-
 last_images = {}
-
 
 RARITY_EMOJI = {
     'obichnie': '🟢',
@@ -88,7 +74,6 @@ RARITY_EMOJI = {
     'kolabnie': '🟡',
     'spoylemie': '🔴'
 }
-
 
 RARITY_NAMES = {
     'obichnie': 'Обычная',
@@ -99,45 +84,36 @@ RARITY_NAMES = {
 }
 
 def get_random_image_with_rarity():
-    """Получает случайное изображение с учетом редкости"""
-    
-
     chosen_rarity = random.choices(
         list(RARITY_CHANCES.keys()),
         weights=list(RARITY_CHANCES.values())
     )[0]
-    
 
     folder_path = RARITY_FOLDERS[chosen_rarity]
-    
 
     local_images = []
     if os.path.exists(folder_path):
         local_images = [f for f in os.listdir(folder_path) 
                        if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif'))]
-    
 
     if not local_images:
         return None, 'empty', chosen_rarity, None
-    
 
     filename = random.choice(local_images)
     image_path = os.path.join(folder_path, filename)
     return image_path, 'local', chosen_rarity, filename
 
 def add_to_inventory(user_id, rarity, filename):
-    """Добавляет карточку в инвентарь пользователя"""
     global user_inventory
     user_id_str = str(user_id)
     if user_id_str not in user_inventory:
         user_inventory[user_id_str] = {}
     
     for card_id, card_data in user_inventory[user_id_str].items():
-        if card_data["filename"] == filename and card_data["rarity"] == rarity:
+        if card_data["filename"] == filename:
             return None
-    
+
     card_id = f"{rarity}_{filename}_{int(time.time())}_{random.randint(1000, 9999)}"
-    
 
     user_inventory[user_id_str][card_id] = {
         "rarity": rarity,
@@ -150,7 +126,6 @@ def add_to_inventory(user_id, rarity, filename):
     return card_id
 
 def get_inventory_text(user_id):
-    """Возвращает текст инвентаря пользователя"""
     user_id_str = str(user_id)
     if user_id_str not in user_inventory:
         return "У тебя пока нет карточек. Напиши 'дедус' чтобы получить первую!"
@@ -158,7 +133,6 @@ def get_inventory_text(user_id):
     inventory = user_inventory[user_id_str]
     if not inventory:
         return "У тебя пока нет карточек. Напиши 'дедус' чтобы получить первую!"
-    
 
     rarity_groups = {}
     for card_id, card_data in inventory.items():
@@ -178,14 +152,11 @@ def get_inventory_text(user_id):
             name = RARITY_NAMES.get(rarity, rarity)
             count = len(rarity_groups[rarity])
             text += f"{emoji} {name}: {count}\n"
-            
 
-            for i, card in enumerate(rarity_groups[rarity][:5]):
-                card_name = card["name"][:15] + "..." if len(card["name"]) > 15 else card["name"]
+            for card in rarity_groups[rarity]:
+                card_name = card["name"]
                 text += f"  • {card_name}\n"
             
-            if count > 5:
-                text += f"  ... и еще {count - 5}\n"
             text += "\n"
     
     text += f"═══════════════════\n"
@@ -194,39 +165,41 @@ def get_inventory_text(user_id):
     
     return text
 
-def get_card_by_name(user_id, card_name):
-    """Ищет карточку по названию"""
+def get_cards_by_name(user_id, search_term):
     user_id_str = str(user_id)
     if user_id_str not in user_inventory:
-        return None
+        return []
+    
+    matches = []
+    search_lower = search_term.lower()
     
     for card_id, card_data in user_inventory[user_id_str].items():
-        if card_name.lower() in card_data["name"].lower():
-            return card_data
+        card_name_lower = card_data["name"].lower()
+        if len(search_term) >= 3 and search_lower in card_name_lower:
+            matches.append(card_data)
+        elif len(search_term) < 3 and card_name_lower == search_lower:
+            matches.append(card_data)
     
-    return None
+    return matches
 
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
-
     if message.chat.type not in ['group', 'supergroup']:
         return
-    
 
     text = message.text or ''
-    
 
     bot_mentions = [BOT_NAME, BOT_NAME.lower(), 'дедус', 'MGE', 'mge']
-    
 
     for mention in bot_mentions:
         if mention in text and 'карточка' in text.lower():
             parts = text.lower().split('карточка')
             if len(parts) > 1 and parts[1].strip():
                 card_search = parts[1].strip()
-                card_data = get_card_by_name(message.from_user.id, card_search)
+                matching_cards = get_cards_by_name(message.from_user.id, card_search)
                 
-                if card_data:
+                if len(matching_cards) == 1:
+                    card_data = matching_cards[0]
                     folder_path = RARITY_FOLDERS[card_data["rarity"]]
                     image_path = os.path.join(folder_path, card_data["filename"])
                     
@@ -239,11 +212,15 @@ def handle_message(message):
                             )
                     except:
                         bot.reply_to(message, "😕 Не могу найти файл карточки")
+                elif len(matching_cards) > 1:
+                    cards_list = "\n".join([f"  • {card['name']}" for card in matching_cards[:10]])
+                    if len(matching_cards) > 10:
+                        cards_list += f"\n  ... и еще {len(matching_cards) - 10}"
+                    bot.reply_to(message, f"🔍 Найдено несколько карточек:\n{cards_list}\n\nУточни запрос")
                 else:
-                    bot.reply_to(message, f"😕 Нет карточки с названием '{card_search}'")
+                    bot.reply_to(message, f"😕 Нет карточек с названием '{card_search}'")
                 return
             break
-    
 
     is_inventory_request = False
     for mention in bot_mentions:
@@ -255,7 +232,6 @@ def handle_message(message):
         inventory_text = get_inventory_text(message.from_user.id)
         bot.reply_to(message, inventory_text)
         return
-    
 
     should_respond = False
     for mention in bot_mentions:
@@ -264,54 +240,46 @@ def handle_message(message):
             break
     
     if should_respond:
- 
         bot.send_chat_action(message.chat.id, 'upload_photo')
-        
 
         image_data, source, rarity, filename = get_random_image_with_rarity()
         
         if image_data and filename:
             try:
-
                 card_id = add_to_inventory(message.from_user.id, rarity, filename)
                 
-                if card_id is None:
-                    bot.reply_to(message, "😕 Эта карточка у тебя уже есть! Дедус попробует найти другую...")
-                    return
-                
-
                 keyboard = InlineKeyboardMarkup()
                 keyboard.row(
                     InlineKeyboardButton("🔄 Ещё", callback_data="more"),
                     InlineKeyboardButton("👍 Нравится", callback_data="like"),
                     InlineKeyboardButton("👴 Дедус одобряет", callback_data="dedus_approve")
                 )
-                
 
                 emoji = RARITY_EMOJI.get(rarity, '🎴')
                 rarity_name = RARITY_NAMES.get(rarity, rarity)
-                card_name = os.path.splitext(filename)[0][:20]
-                
+                card_name = os.path.splitext(filename)[0]
 
-                captions = [
-                    f"👴 {BOT_NAME} нашел для тебя карточку!\n{emoji} {rarity_name}\n📇 {card_name}",
-                    f"🎨 Держи, внучок, карточку от {BOT_NAME}!\n{emoji} {rarity_name}\n📇 {card_name}",
-                    f"📸 {BOT_NAME} поделился карточкой:\n{emoji} {rarity_name}\n📇 {card_name}",
-                    f"🌟 По просьбе @{message.from_user.username or 'пользователя'}\n{emoji} {rarity_name}\n📇 {card_name}",
-                    f"👴 Дедус говорит: 'Смотри, что нашел!'\n{emoji} {rarity_name}\n📇 {card_name}"
-                ]
-                
+                if card_id is None:
+                    caption = f"🔄 Эта карточка у тебя уже есть!\n{emoji} {rarity_name}\n📇 {card_name}"
+                else:
+                    captions = [
+                        f"👴 {BOT_NAME} нашел для тебя карточку!\n{emoji} {rarity_name}\n📇 {card_name}",
+                        f"🎨 Держи, внучок, карточку от {BOT_NAME}!\n{emoji} {rarity_name}\n📇 {card_name}",
+                        f"📸 {BOT_NAME} поделился карточкой:\n{emoji} {rarity_name}\n📇 {card_name}",
+                        f"🌟 По просьбе @{message.from_user.username or 'пользователя'}\n{emoji} {rarity_name}\n📇 {card_name}",
+                        f"👴 Дедус говорит: 'Смотри, что нашел!'\n{emoji} {rarity_name}\n📇 {card_name}"
+                    ]
+                    caption = random.choice(captions)
 
                 if source == 'local':
                     with open(image_data, 'rb') as img:
                         sent_msg = bot.send_photo(
                             message.chat.id,
                             img,
-                            caption=random.choice(captions),
+                            caption=caption,
                             reply_to_message_id=message.message_id,
                             reply_markup=keyboard
                         )
-                
 
                 chat_id = message.chat.id
                 if chat_id not in last_images:
@@ -322,7 +290,6 @@ def handle_message(message):
                     'time': time.time(),
                     'rarity': rarity
                 })
-                
 
                 if len(last_images[chat_id]) > 5:
                     last_images[chat_id].pop(0)
@@ -335,7 +302,6 @@ def handle_message(message):
 @bot.callback_query_handler(func=lambda call: True)
 def handle_callback(call):
     if call.data == "more":
-
         try:
             bot.edit_message_reply_markup(
                 call.message.chat.id,
@@ -344,18 +310,10 @@ def handle_callback(call):
             )
         except:
             pass
-        
 
         image_data, source, rarity, filename = get_random_image_with_rarity()
         
         if image_data and filename:
-
-            card_id = add_to_inventory(call.from_user.id, rarity, filename)
-            
-            if card_id is None:
-                bot.send_message(call.message.chat.id, "😕 Эта карточка у тебя уже есть! Дедус попробует найти другую...")
-                return
-            
             if source == 'local':
                 with open(image_data, 'rb') as img:
                     bot.send_photo(
@@ -382,7 +340,7 @@ def send_welcome(message):
 **Как использовать:**
 • Напишите `{BOT_NAME}` или просто "дедус" в чате - я пришлю карточку
 • Напишите `{BOT_NAME} инвентарь` - покажу твои карточки
-• Напишите `{BOT_NAME} карточка [название]` - покажу конкретную карточку
+• Напишите `{BOT_NAME} карточка [название]` - покажу конкретную карточку (можно искать по 3+ буквам)
 
 **Команды:**
 /help - показать эту справку
@@ -400,7 +358,6 @@ def send_welcome(message):
 @bot.message_handler(commands=['status'])
 def send_status(message):
     if message.chat.type in ['group', 'supergroup']:
-
         stats_text = "📊 СТАТИСТИКА\n══════════\n\n"
         total_count = 0
         
@@ -412,11 +369,9 @@ def send_status(message):
                 emoji = RARITY_EMOJI.get(rarity, '📁')
                 name = RARITY_NAMES.get(rarity, rarity)
                 stats_text += f"{emoji} {name}: {count} ({RARITY_CHANCES[rarity]}%)\n"
-        
 
         group_images = len(last_images.get(message.chat.id, []))
-        
-  
+
         total_users = len(user_inventory)
         total_cards_collected = sum(len(cards) for cards in user_inventory.values())
         
@@ -431,31 +386,24 @@ def send_status(message):
 
 @bot.message_handler(commands=['inventory'])
 def show_inventory(message):
-    """Показывает инвентарь пользователя"""
     inventory_text = get_inventory_text(message.from_user.id)
     bot.reply_to(message, inventory_text)
 
 @bot.message_handler(commands=['add_image'])
 def add_image(message):
-    """Команда для добавления изображений (только для админов)"""
-    
-
     if message.chat.type not in ['group', 'supergroup']:
         bot.reply_to(message, "Эта команда работает только в группах!")
         return
-    
 
     if not message.reply_to_message or not message.reply_to_message.photo:
         bot.reply_to(message, 
                     f"{BOT_NAME} говорит: отправь фото с подписью /add_image в ответ на него")
         return
-    
-    try:
 
+    try:
         file_id = message.reply_to_message.photo[-1].file_id
         file_info = bot.get_file(file_id)
         downloaded_file = bot.download_file(file_info.file_path)
-        
 
         filename = f"dedus_{int(time.time())}.png"
         filepath = os.path.join(RARITY_FOLDERS['obichnie'], filename)
@@ -468,26 +416,22 @@ def add_image(message):
     except Exception as e:
         bot.reply_to(message, f"❌ Ошибка при сохранении: {str(e)}")
 
-
 @bot.message_handler(content_types=['new_chat_members'])
 def welcome_new_member(message):
     for member in message.new_chat_members:
         if member.id == bot.get_me().id:
-
             bot.send_message(
                 message.chat.id,
                 f"Всем привет! Я {BOT_NAME}\n"
                 f"Напишите '{BOT_NAME}' в чате, и я пришлю карточку!"
             )
         else:
-
             welcome_msgs = [
                 f"{BOT_NAME} приветствует нового внучка {member.first_name}!",
                 f"🌟 О, {member.first_name} пришел! Дедус рад!",
                 f"🎉 {BOT_NAME}: 'Добро пожаловать, {member.first_name}!'"
             ]
             bot.send_message(message.chat.id, random.choice(welcome_msgs))
-
 
 if __name__ == '__main__':
     print(f"🚀 Бот {BOT_NAME} запущен и готов к работе!")
@@ -497,7 +441,6 @@ if __name__ == '__main__':
     print(f"📦 Загружено инвентарей: {len(user_inventory)}")
     print("👴 Дедус проснулся и ждет сообщений...")
     print(f"✅ Токен установлен: {TOKEN[:10]}...")
-    
 
     while True:
         try:
